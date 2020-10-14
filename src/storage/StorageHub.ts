@@ -33,7 +33,7 @@ export default class StorageHub
 
         this._permissions = permissions;
         this.installListener();
-        this.sendMsgToClient('*', { method: IHubMethodEnum.READY })
+        this.sendMsgToClient('*', { method: IHubMethodEnum.READY });
     }
 
     private installListener()
@@ -56,6 +56,7 @@ export default class StorageHub
 
     private _messageListener = (ev: MessageEvent<string>) =>
     {
+        console.log('hub income message => ', ev)
         let request: IMessageRequest<any>
         try
         {
@@ -67,6 +68,13 @@ export default class StorageHub
             console.error('Json parse error', err);
             return
         }
+
+        // Ignore the ready message when viewing the hub directly
+        if(request.method === IHubMethodEnum.READY)
+        {
+            return
+        }
+
         // check allow origin
         if(Array.isArray(this._permissions) && this._permissions.some(permission => permission.origin.test(ev.origin)))
         {
@@ -223,7 +231,9 @@ export default class StorageHub
     {
         if(window && window.parent && window.parent.postMessage)
         {
-            window.parent.postMessage(JSON.stringify(response), origin || '*')
+            // 当 origin 为 'null' 时，表示当前hub被 file:// 协议所加载
+            const targetOrigin = origin && origin !== 'null' ? origin : '*'
+            window.parent.postMessage(JSON.stringify(response), targetOrigin)
         }
         else
         {

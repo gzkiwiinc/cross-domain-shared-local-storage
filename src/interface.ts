@@ -43,7 +43,7 @@ export enum IHubMethodEnum
 export interface IMessageRequest<T>
 {
     id?: string,
-    method: IClientMethodEnum,
+    method: IClientMethodEnum | 'ready',
     param?: T,
 }
 
