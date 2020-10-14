@@ -1,4 +1,4 @@
-import { IHubMethodEnum, IStorageHubPermission, IMessageRequest, IClientMethodEnum, IMessageResponse, IObserver, IStorageChange } from '../interface';
+import { IHubMethodEnum, IStorageHubPermission, IMessageRequest, IClientMethodEnum, IMessageResponse, IObserver, IStorageChange, ISetParam, IDelParam, IGetParam } from '../interface';
 
 export default class StorageHub
 {
@@ -50,21 +50,20 @@ export default class StorageHub
         }
         else
         {
-            window.onmessage = this._messageListener
-            window.onstorage = this._storageListener
+            console.error('This browser was not support!')
         }
     }
 
     private _messageListener = (ev: MessageEvent<string>) =>
     {
-        let request: IMessageRequest
+        let request: IMessageRequest<any>
         try
         {
             request = JSON.parse(ev.data);
         }
         catch(err)
         {
-            this.sendMsgToClient(ev.origin, { method: IHubMethodEnum.ERROR, param: `'Json parse error: ${err}` });
+            this.sendMsgToClient(ev.origin, { method: IHubMethodEnum.ERROR, body: `'Json parse error: ${err}` });
             console.error('Json parse error', err);
             return
         }
@@ -121,21 +120,20 @@ export default class StorageHub
             const tragetObservers = this._observers.filter(observer => observer.keys.includes(key))
             tragetObservers.map(observer =>
             {
-                const changeObj: IStorageChange = {
-                    key,
-                    oldValue,
-                    newValue 
-                }
-                const response: IMessageResponse = {
+                const response: IMessageResponse<IStorageChange> = {
                     method: IHubMethodEnum.PUSH,
-                    param: changeObj
+                    body: {
+                        key,
+                        oldValue,
+                        newValue 
+                    }
                 }
                 this.sendMsgToClient(observer.origin, response)
             })
         }
     }
 
-    private _safe_get(param: { key: string })
+    private _safe_get(param: IGetParam)
     {
         try
         {
@@ -149,7 +147,7 @@ export default class StorageHub
         }
     }
 
-    private _safe_set(param: { key: string, value: string })
+    private _safe_set(param: ISetParam)
     {
         try
         {
@@ -163,7 +161,7 @@ export default class StorageHub
         }
     }
 
-    private _safe_del(param: { key: string })
+    private _safe_del(param: IDelParam)
     {
         try
         {
@@ -191,7 +189,7 @@ export default class StorageHub
         }
     }
 
-    private _observed(origin: string, request: IMessageRequest)
+    private _observed(origin: string, request: IMessageRequest<string[]>)
     {
         if(!Array.isArray(this._observers))
         {
@@ -221,11 +219,11 @@ export default class StorageHub
         this._observers = this._observers.filter(observer => observer.origin !== origin)
     }
 
-    private sendMsgToClient(origin: string, response: IMessageResponse)
+    private sendMsgToClient<T>(origin: string, response: IMessageResponse<T>)
     {
         if(window && window.parent && window.parent.postMessage)
         {
-            window.parent.postMessage(JSON.stringify(response), origin)
+            window.parent.postMessage(JSON.stringify(response), origin || '*')
         }
         else
         {
@@ -233,9 +231,9 @@ export default class StorageHub
         }
     }
 
-    private requestTransferResponse(request: IMessageRequest, method: IHubMethodEnum, param: any)
+    private requestTransferResponse<T, K>(request: IMessageRequest<T>, method: IHubMethodEnum, param: K)
     {
-        const response: IMessageResponse = Object.assign({}, request, { method, param })
+        const response: IMessageResponse<K> = Object.assign({}, request, { method, body: param })
         return response
     }
 }

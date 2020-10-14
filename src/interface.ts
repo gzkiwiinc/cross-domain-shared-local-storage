@@ -13,6 +13,14 @@ export interface IStorageHubPermission
     allow: IClientMethodEnum[],
 }
 
+export interface IStorageClientOption
+{
+    /**
+     * Request timeout millisecond
+     */
+    timeout?: number,
+}
+
 export enum IClientMethodEnum
 {
     GET = 'get',
@@ -32,18 +40,18 @@ export enum IHubMethodEnum
     PUSH = 'push'
 }
 
-export interface IMessageRequest
+export interface IMessageRequest<T>
 {
     id?: string,
     method: IClientMethodEnum,
-    param?: any,
+    param?: T,
 }
 
-export interface IMessageResponse
+export interface IMessageResponse<T>
 {
     id?: string,
     method: IHubMethodEnum,
-    param?: any,
+    body?: T,
 }
 
 export interface IObserver
@@ -52,9 +60,32 @@ export interface IObserver
     keys: string[],
 }
 
+export interface ISubscribe
+{
+    keys: string[],
+    callback: (ev: IStorageChange) => void,
+}
+
 export interface IStorageChange
 {
     key: string,
     newValue: any,
     oldValue: any,
 }
+
+export interface ISetParam
+{
+    key: string,
+    value: string,
+}
+
+export interface IGetParam
+{
+    key: string,
+}
+
+export interface IDelParam
+{
+    key: string,
+}
+
