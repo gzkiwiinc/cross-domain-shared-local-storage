@@ -1,6 +1,6 @@
 {
   "name": "cross-domain-shared-storage",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "storage is shared across domains library",
   "module": "lib/index.es.js",
   "main": "lib/index.cjs.js",
