@@ -16,6 +16,8 @@ export default class StorageClient
 
     private _subscribe: ISubscribe | null;
 
+    private _origin: string;
+
     constructor()
     {
         console.log('StorageClient');
@@ -37,6 +39,7 @@ export default class StorageClient
         this._url = url
         this._frameId = `cross-domain-storage-${Date.now().toString()}`
         this._timeout = opts.timeout || 5000;
+        this._origin = this._getOrigin(url)
         return new Promise<StorageClient>((resolve, reject) =>
         {
             if(needCreate)
@@ -46,6 +49,8 @@ export default class StorageClient
                 // 监听 ready 或 unavailable 事件
                 const iframeReadyListener = (ev: MessageEvent<string>) =>
                 {
+                    // 过滤掉其它源的消息
+                    if(ev.origin !== this._origin) return
                     let response: IMessageResponse<any>
                     try
                     {
@@ -61,6 +66,7 @@ export default class StorageClient
                         this._connected = true;
                         // 清除超时定时器
                         timer && clearTimeout(timer);
+                        this._removeMessageListener(iframeReadyListener);
                         resolve(this)
                     }
                     else if(response.method === IHubMethodEnum.UNAVAILABLE)
@@ -68,6 +74,7 @@ export default class StorageClient
                         this._connected = false;
                         // 清除超时定时器
                         timer && clearTimeout(timer);
+                        this._removeMessageListener(iframeReadyListener);
                         reject(new Error('Browser does not support localStorage'))
                     }
                 }
@@ -78,6 +85,7 @@ export default class StorageClient
                 if(!this._hub)
                 {
                     this._connected = false;
+                    this._removeMessageListener(iframeReadyListener);
                     reject(new Error('Iframe creation failed'))
                 }
                 else
@@ -121,6 +129,8 @@ export default class StorageClient
                 // 监听 ready 或 unavailable 事件
                 const setItemListener = (ev: MessageEvent<string>) =>
                 {
+                    // 过滤掉其它源的消息
+                    if(ev.origin !== this._origin) return
                     let response: IMessageResponse<boolean>
                     try
                     {
@@ -135,6 +145,7 @@ export default class StorageClient
                     {
                         // 清除超时定时器
                         timer && clearTimeout(timer);
+                        this._removeMessageListener(setItemListener)
                         resolve(response.body)
                     }
                     else if(response.method === IHubMethodEnum.ERROR)
@@ -142,7 +153,8 @@ export default class StorageClient
                         this._connected = false;
                         // 清除超时定时器
                         timer && clearTimeout(timer);
-                        reject(new Error('Browser does not support localStorage'))
+                        this._removeMessageListener(setItemListener)
+                        reject(new Error(response.body as any))
                     }
                 }
                 this._addMessageListener(setItemListener);
@@ -176,6 +188,8 @@ export default class StorageClient
                 // 监听 ready 或 unavailable 事件
                 const getItemListener = (ev: MessageEvent<string>) =>
                 {
+                    // 过滤掉其它源的消息
+                    if(ev.origin !== this._origin) return
                     let response: IMessageResponse<string>
                     try
                     {
@@ -190,13 +204,15 @@ export default class StorageClient
                     {
                         // 清除超时定时器
                         timer && clearTimeout(timer);
+                        this._removeMessageListener(getItemListener)
                         resolve(response.body)
                     }
                     else if(response.method === IHubMethodEnum.ERROR)
                     {
                         // 清除超时定时器
                         timer && clearTimeout(timer);
-                        reject(new Error('Browser does not support localStorage'))
+                        this._removeMessageListener(getItemListener)
+                        reject(new Error(response.body as any))
                     }
                 }
                 this._addMessageListener(getItemListener);
@@ -230,6 +246,8 @@ export default class StorageClient
                 // 监听 ready 或 unavailable 事件
                 const delItemListener = (ev: MessageEvent<string>) =>
                 {
+                    // 过滤掉其它源的消息
+                    if(ev.origin !== this._origin) return
                     let response: IMessageResponse<boolean>
                     try
                     {
@@ -244,13 +262,15 @@ export default class StorageClient
                     {
                         // 清除超时定时器
                         timer && clearTimeout(timer);
+                        this._removeMessageListener(delItemListener);
                         resolve(response.body)
                     }
                     else if(response.method === IHubMethodEnum.ERROR)
                     {
                         // 清除超时定时器
                         timer && clearTimeout(timer);
-                        reject(new Error('Browser does not support localStorage'))
+                        this._removeMessageListener(delItemListener);
+                        reject(new Error(response.body as any))
                     }
                 }
                 this._addMessageListener(delItemListener);
@@ -284,6 +304,8 @@ export default class StorageClient
                 // 监听 ready 或 unavailable 事件
                 const clearStorageListener = (ev: MessageEvent<string>) =>
                 {
+                    // 过滤掉其它源的消息
+                    if(ev.origin !== this._origin) return
                     let response: IMessageResponse<boolean>
                     try
                     {
@@ -298,13 +320,15 @@ export default class StorageClient
                     {
                         // 清除超时定时器
                         timer && clearTimeout(timer);
+                        this._removeMessageListener(clearStorageListener);
                         resolve(response.body)
                     }
                     else if(response.method === IHubMethodEnum.ERROR)
                     {
                         // 清除超时定时器
                         timer && clearTimeout(timer);
-                        reject(new Error('Browser does not support localStorage'))
+                        this._removeMessageListener(clearStorageListener);
+                        reject(new Error(response.body as any))
                     }
                 }
                 this._addMessageListener(clearStorageListener);
@@ -358,7 +382,7 @@ export default class StorageClient
     {
         if(this._hub)
         {
-            this._hub.postMessage(JSON.stringify(request), origin)
+            this._hub.postMessage(JSON.stringify(request), this._origin)
         }
     }
 
@@ -380,6 +404,8 @@ export default class StorageClient
 
     private subscribeHubListener = (ev: MessageEvent<string>) =>
     {
+        // 过滤掉其它源的消息
+        if(ev.origin !== this._origin) return
         let response: IMessageResponse<IStorageChange>
         try
         {
@@ -425,6 +451,20 @@ export default class StorageClient
         else
         {
             console.error('This browser was not support!')
+        }
+    }
+
+    private _getOrigin(url: string)
+    {
+        const aElement = document.createElement('a');
+        aElement.href = url;
+        if (aElement.host && aElement.protocol)
+        {
+            return `${aElement.protocol}//${aElement.host}`
+        }
+        else
+        {
+            return `${window.location.protocol}//${window.location.host}`
         }
     }
 }

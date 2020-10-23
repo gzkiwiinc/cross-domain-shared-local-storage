@@ -81,7 +81,7 @@ export default class StorageHub
             const permission = this._permissions.find(permission => permission.origin.test(ev.origin));
 
             // check allow method
-            if(permission && permission.allow.some(allowMethod => allowMethod === request.method) && this[request.method])
+            if(permission && permission.allow.some(allowMethod => allowMethod === request.method))
             {
                 try
                 {
@@ -122,6 +122,7 @@ export default class StorageHub
 
     private _storageListener = (ev: StorageEvent) =>
     {
+        console.log('_storageListener => ', ev)
         const { key, oldValue, newValue } = ev
         if(key)
         {
@@ -199,6 +200,7 @@ export default class StorageHub
 
     private _observed(origin: string, request: IMessageRequest<string[]>)
     {
+        console.log('_observed', origin, request, this._observers)
         if(!Array.isArray(this._observers))
         {
             this._observers = []
@@ -216,6 +218,11 @@ export default class StorageHub
                 return observer
             })
         }
+        else
+        {
+            this._observers = [ { origin, keys: request.param || [] } ]
+        }
+        console.log('_observed set success => ', this._observers)
     }
 
     private _unobserved(origin: string)
@@ -231,6 +238,7 @@ export default class StorageHub
     {
         if(window && window.parent && window.parent.postMessage)
         {
+            console.log('sendMsgToClient => ', response, origin)
             // 当 origin 为 'null' 时，表示当前hub被 file:// 协议所加载
             const targetOrigin = origin && origin !== 'null' ? origin : '*'
             window.parent.postMessage(JSON.stringify(response), targetOrigin)
